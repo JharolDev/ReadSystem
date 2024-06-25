@@ -40,12 +40,12 @@ jobs:
         id: trivy-scan
         run: |
           IMAGE_NAME=$(echo ${{ steps.get-image-name.outputs.image-name }})
-          ./bin/trivy image $IMAGE_NAME --format json --output $GITHUB_WORKSPACE/docker-image-vul.json
+          ./bin/trivy image $IMAGE_NAME --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
         run: |
-          cat $GITHUB_WORKSPACE/docker-image-vul.json
+          cat docker-image-vul.json
 
       # Verificar vulnerabilidades encontradas
       - name: Check for Vulnerabilities
@@ -53,24 +53,31 @@ jobs:
         continue-on-error: true  # Continuar incluso si hay un error en este paso
         run: |
           # Capturar la cantidad de vulnerabilidades
-          VULNERABILITIES=$(jq -r '.Vulnerabilities | length' $GITHUB_WORKSPACE/docker-image-vul.json || echo "0")
+          VULNERABILITIES=$(jq -r '.Vulnerabilities | length' docker-image-vul.json || echo "0")
           echo "Number of vulnerabilities found: $VULNERABILITIES"
           if [ "$VULNERABILITIES" -gt 0 ]; then
             echo "Vulnerabilities found in the Docker image:"
-            jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' $GITHUB_WORKSPACE/docker-image-vul.json
+            jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' docker-image-vul.json
             echo "::set-output name=vulnerabilities-found::true"
           else
             echo "No vulnerabilities found in the Docker image."
             echo "::set-output name=vulnerabilities-found::false"
           fi
 
-      # Subir el reporte de escaneo como artefacto
-      - name: Upload Scan Results
-        if: always()  # Subir resultados siempre, incluso si falla el escaneo
+      # Guardar el reporte de escaneo en el repositorio
+      - name: Save Scan Report to Repository
+        if: success()  # Guardar el reporte solo si el escaneo fue exitoso
+        run: |
+          mkdir -p reports
+          cp docker-image-vul.json reports/
+
+      # Subir carpeta de reportes como artefacto final
+      - name: Upload Reports Folder
+        if: always()  # Subir siempre la carpeta de reportes
         uses: actions/upload-artifact@v2
         with:
-          name: docker-image-vul-report
-          path: $GITHUB_WORKSPACE/docker-image-vul.json
+          name: scan-reports
+          path: reports
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
