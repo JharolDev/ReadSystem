@@ -21,59 +21,37 @@ jobs:
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
 
-      - name: Create directory for scan reports
-        run: mkdir -p $GITHUB_WORKSPACE/anchore-reports
-
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          ./bin/trivy image myapp --format json --output $GITHUB_WORKSPACE/anchore-reports/scan-report.json
+          ./bin/trivy image myapp --format json --output $GITHUB_WORKSPACE/docker-image-vul.json
 
       - name: Show Trivy Scan Results
         run: |
-          cat $GITHUB_WORKSPACE/anchore-reports/scan-report.json
+          cat $GITHUB_WORKSPACE/docker-image-vul.json
 
       - name: Check for Vulnerabilities
         id: vulnerabilities-check
         continue-on-error: true  # Continuar incluso si hay un error en este paso
         run: |
           # Capture vulnerabilities count
-          VULNERABILITIES=$(jq -r '.Vulnerabilities | length' $GITHUB_WORKSPACE/anchore-reports/scan-report.json || echo "0")
+          VULNERABILITIES=$(jq -r '.Vulnerabilities | length' $GITHUB_WORKSPACE/docker-image-vul.json || echo "0")
+          echo "Number of vulnerabilities found: $VULNERABILITIES"
           if [ "$VULNERABILITIES" -gt 0 ]; then
             echo "Vulnerabilities found in the Docker image:"
-            jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' $GITHUB_WORKSPACE/anchore-reports/scan-report.json
+            jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' $GITHUB_WORKSPACE/docker-image-vul.json
             echo "::set-output name=vulnerabilities-found::true"
           else
             echo "No vulnerabilities found in the Docker image."
             echo "::set-output name=vulnerabilities-found::false"
           fi
 
-      - name: Save Full Scan Report
-        if: success()  # Guardar el reporte completo solo si el escaneo fue exitoso
-        run: |
-          cp $GITHUB_WORKSPACE/anchore-reports/scan-report.json $GITHUB_WORKSPACE/anchore-reports/full-scan-report.json
-
-      - name: Create 'image-vulnerables' folder
-        run: mkdir -p $GITHUB_WORKSPACE/image-vulnerables
-
-      - name: Move Scan Reports to 'image-vulnerables'
-        run: |
-          mv $GITHUB_WORKSPACE/anchore-reports/scan-report.json $GITHUB_WORKSPACE/image-vulnerables/
-          mv $GITHUB_WORKSPACE/anchore-reports/full-scan-report.json $GITHUB_WORKSPACE/image-vulnerables/
-
       - name: Upload Scan Results
         if: always()  # Subir resultados siempre, incluso si falla el escaneo
         uses: actions/upload-artifact@v2
         with:
-          name: anchore-reports
-          path: $GITHUB_WORKSPACE/anchore-reports
-
-      - name: Upload Vulnerable Image Reports
-        if: steps.vulnerabilities-check.outputs.vulnerabilities-found == 'true'
-        uses: actions/upload-artifact@v2
-        with:
-          name: image-vulnerables
-          path: $GITHUB_WORKSPACE/image-vulnerables
+          name: docker-image-vul-report
+          path: $GITHUB_WORKSPACE/docker-image-vul.json
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
