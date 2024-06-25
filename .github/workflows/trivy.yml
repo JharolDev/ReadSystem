@@ -16,11 +16,11 @@ jobs:
         id: get-image-name
         run: |
           IMAGE_NAME=$(awk '$1 == "FROM" { print $2; exit }' Dockerfile)
-          echo "image-name=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "::set-output name=image-name::$IMAGE_NAME"
 
       # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t ${{ env.IMAGE_NAME }} .
+        run: docker build -t ${{ steps.get-image-name.outputs.image-name }} .
 
       # Autenticación en Docker Hub si es necesario
       - name: Login to Docker Hub
@@ -39,8 +39,8 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          IMAGE_NAME=$(echo ${{ env.IMAGE_NAME }})
-          ./bin/trivy image $IMAGE_NAME --format json --output docker-image-vul.json --severity HIGH,MEDIUM,LOW --ignore-unfixed
+          IMAGE_NAME=$(echo ${{ steps.get-image-name.outputs.image-name }})
+          ./bin/trivy image $IMAGE_NAME --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
@@ -58,10 +58,10 @@ jobs:
           if [ "$VULNERABILITIES" -gt 0 ]; then
             echo "Vulnerabilities found in the Docker image:"
             jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' docker-image-vul.json
-            echo "vulnerabilities-found=true" >> $GITHUB_ENV
+            echo "::set-output name=vulnerabilities-found::true"
           else
             echo "No vulnerabilities found in the Docker image."
-            echo "vulnerabilities-found=false" >> $GITHUB_ENV
+            echo "::set-output name=vulnerabilities-found::false"
           fi
 
       # Guardar el reporte de escaneo en el repositorio
@@ -81,6 +81,6 @@ jobs:
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
-        if: ${{ env.VULNERABILITIES_FOUND == 'true' }}
+        if: steps.vulnerabilities-check.outputs.vulnerabilities-found == 'true'
         run: |
           echo "::warning::Vulnerabilities were found in the Docker image. Review the scan report for details."
