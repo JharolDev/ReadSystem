@@ -53,11 +53,12 @@ jobs:
 
       - name: Check for Vulnerabilities
         run: |
-          VULNERABILITIES=$(jq -r '.[0].Vulnerabilities | length' anchore-reports/scan-report.json)
+          # Capture vulnerabilities count
+          VULNERABILITIES=$(jq -r '.Vulnerabilities | length' anchore-reports/scan-report.json)
           if [ "$VULNERABILITIES" -gt 0 ]; then
             echo "Vulnerabilities found in the Docker image:"
-            jq -r '.[0].Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' anchore-reports/scan-report.json
-            exit 1 # Marcar el trabajo como fallido si hay vulnerabilidades
+            jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' anchore-reports/scan-report.json
+            exit 1  # Marcar el trabajo como fallido si hay vulnerabilidades
           else
             echo "No vulnerabilities found in the Docker image."
           fi
@@ -69,7 +70,7 @@ jobs:
           name: anchore-reports
           path: ./anchore-reports
 
-      # Añadir una advertencia si se encontraron vulnerabilidades
+      # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
         if: steps.trivy-scan.outcome == 'success' && steps.check-for-vulnerabilities.outcome == 'failure'
         run: |
