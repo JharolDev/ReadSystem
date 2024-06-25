@@ -45,7 +45,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: ${{ steps.get-image-name.outputs.image-name }}
+          tags: ${{ steps.get-image-name.outputs.image-name }} # Utilizamos el nombre obtenido del Dockerfile como etiqueta
 
       # Instalar Trivy CLI
       - name: Install Trivy CLI
