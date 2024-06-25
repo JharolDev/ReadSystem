@@ -20,7 +20,7 @@ jobs:
 
       # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t jharol/myapp:${{ steps.get-image-name.outputs.image-name }} .
+        run: docker build -t /myapp:${{ steps.get-image-name.outputs.image-name }} .
 
       # Autenticación en Docker Hub
       - name: Login to Docker Hub
