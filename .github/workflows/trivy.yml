@@ -14,26 +14,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Check if image exists in Docker Hub
-        id: check-image
-        run: |
-          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/myapp:${{ github.sha }}"
-          if docker pull $IMAGE_NAME; then
-            echo "exists=true" >> $GITHUB_ENV
-          else
-            echo "exists=false" >> $GITHUB_ENV
-          fi
-          
-      - name: Build and Push Docker Image
-        if: env.exists == 'false'
-        run: |
-          docker buildx build --platform linux/amd64 -t ${{ secrets.DOCKER_USERNAME }}/myapp:${{ github.sha }} --push .
+      - name: Build Docker Image
+        run: docker build -t myapp .
 
       - name: Install Trivy CLI
         run: |
@@ -42,10 +24,10 @@ jobs:
       - name: Create directory for scan reports
         run: mkdir -p $GITHUB_WORKSPACE/anchore-reports
 
-      - name: Scan Image with Trivy
+      - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          ./bin/trivy image ${{ secrets.DOCKER_USERNAME }}/myapp:${{ github.sha }} --format json --output $GITHUB_WORKSPACE/anchore-reports/scan-report.json
+          ./bin/trivy image myapp --format json --output $GITHUB_WORKSPACE/anchore-reports/scan-report.json
 
       - name: Show Trivy Scan Results
         run: |
