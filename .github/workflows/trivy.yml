@@ -85,16 +85,15 @@ jobs:
       - name: Save Scan Report to Repository
         if: success()  # Guardar el reporte solo si el escaneo fue exitoso
         run: |
-          mkdir -p reports
-          cp docker-image-vul.json reports/
+          cp docker-image-vul.json ./docker-image-vul.json
 
-      # Subir carpeta de reportes como artefacto final
-      - name: Upload Reports Folder
-        if: always()  # Subir siempre la carpeta de reportes
+      # Subir archivo de reporte como artefacto final
+      - name: Upload Scan Report as Artifact
+        if: success()  # Subir solo si el escaneo fue exitoso
         uses: actions/upload-artifact@v2
         with:
-          name: scan-reports
-          path: reports
+          name: docker-image-vul-report
+          path: ./docker-image-vul.json
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
