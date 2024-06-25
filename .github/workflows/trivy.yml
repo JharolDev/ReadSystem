@@ -34,7 +34,7 @@ jobs:
       - name: Check if Image Exists on Docker Hub
         id: check-image
         run: |
-          docker pull myapp-node-14 || exit 0
+          docker pull ${{ secrets.DOCKER_USERNAME }}/myapp-node-14 || exit 0
 
       # Construir y subir la imagen solo si no existe en Docker Hub
       - name: Build and Push Docker Image
