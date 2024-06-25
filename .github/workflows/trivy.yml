@@ -39,12 +39,9 @@ jobs:
       # Construir y subir la imagen solo si no existe en Docker Hub
       - name: Build and Push Docker Image
         if: steps.check-image.run == 'exit 0'
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: myapp:${{ steps.get-image-name.outputs.image-name }}
+        run: |
+          docker tag myapp:${{ steps.get-image-name.outputs.image-name }} ${{ secrets.DOCKER_USERNAME }}/myapp:${{ steps.get-image-name.outputs.image-name }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/myapp:${{ steps.get-image-name.outputs.image-name }}
 
       # Instalar Trivy CLI
       - name: Install Trivy CLI
@@ -55,7 +52,7 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          IMAGE_NAME= myapp:${{ steps.get-image-name.outputs.image-name }}
+          IMAGE_NAME=myapp:${{ steps.get-image-name.outputs.image-name }}
           ./bin/trivy image $IMAGE_NAME --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
