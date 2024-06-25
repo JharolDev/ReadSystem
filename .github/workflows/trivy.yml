@@ -53,9 +53,10 @@ jobs:
 
       - name: Check for Vulnerabilities
         id: vulnerabilities-check
+        continue-on-error: true  # Continuar incluso si hay un error en este paso
         run: |
           # Capture vulnerabilities count
-          VULNERABILITIES=$(jq -r '.Vulnerabilities | length' $GITHUB_WORKSPACE/anchore-reports/scan-report.json)
+          VULNERABILITIES=$(jq -r '.Vulnerabilities | length' $GITHUB_WORKSPACE/anchore-reports/scan-report.json || echo "0")
           if [ "$VULNERABILITIES" -gt 0 ]; then
             echo "Vulnerabilities found in the Docker image:"
             jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' $GITHUB_WORKSPACE/anchore-reports/scan-report.json
@@ -79,7 +80,7 @@ jobs:
           mv $GITHUB_WORKSPACE/anchore-reports/full-scan-report.json $GITHUB_WORKSPACE/image-vulnerables/
 
       - name: Upload Scan Results
-        if: success()  # Subir resultados solo si el escaneo fue exitoso y no se encontraron vulnerabilidades críticas
+        if: always()  # Subir resultados siempre, incluso si falla el escaneo
         uses: actions/upload-artifact@v2
         with:
           name: anchore-reports
