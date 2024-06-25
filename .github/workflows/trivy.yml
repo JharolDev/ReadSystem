@@ -43,6 +43,10 @@ jobs:
           docker tag myapp-node-14 ${{ secrets.DOCKER_USERNAME }}/myapp-node-14
           docker push ${{ secrets.DOCKER_USERNAME }}/myapp-node-14
 
+      # Esperar unos segundos para que la imagen se propague completamente en Docker Hub
+      - name: Wait for Docker Image Propagation
+        run: sleep 30s
+
       # Instalar Trivy CLI
       - name: Install Trivy CLI
         run: |
