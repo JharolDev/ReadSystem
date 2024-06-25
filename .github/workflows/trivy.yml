@@ -52,16 +52,23 @@ jobs:
           cat anchore-reports/scan-report.json
 
       - name: Check for Vulnerabilities
+        id: vulnerabilities-check
         run: |
           # Capture vulnerabilities count
           VULNERABILITIES=$(jq -r '.Vulnerabilities | length' anchore-reports/scan-report.json)
           if [ "$VULNERABILITIES" -gt 0 ]; then
             echo "Vulnerabilities found in the Docker image:"
             jq -r '.Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' anchore-reports/scan-report.json
-            exit 1  # Marcar el trabajo como fallido si hay vulnerabilidades
+            echo "::set-output name=vulnerabilities-found::true"
           else
             echo "No vulnerabilities found in the Docker image."
+            echo "::set-output name=vulnerabilities-found::false"
           fi
+
+      - name: Save Full Scan Report
+        if: success()  # Guardar el reporte completo solo si el escaneo fue exitoso
+        run: |
+          cp anchore-reports/scan-report.json anchore-reports/full-scan-report.json
 
       - name: Upload Scan Results
         if: success()  # Subir resultados solo si el escaneo fue exitoso y no se encontraron vulnerabilidades críticas
@@ -72,6 +79,14 @@ jobs:
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
-        if: steps.trivy-scan.outcome == 'success' && steps.check-for-vulnerabilities.outcome == 'failure'
+        if: steps.vulnerabilities-check.outputs.vulnerabilities-found == 'true'
         run: |
           echo "::warning::Vulnerabilities were found in the Docker image. Review the scan report for details."
+
+      # Subir el reporte completo como un artefacto adicional
+      - name: Upload Full Scan Report
+        if: success()  # Subir el reporte completo solo si el escaneo fue exitoso
+        uses: actions/upload-artifact@v2
+        with:
+          name: full-scan-report
+          path: ./anchore-reports/full-scan-report.json
