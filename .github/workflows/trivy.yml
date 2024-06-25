@@ -71,12 +71,12 @@ jobs:
           cp anchore-reports/scan-report.json anchore-reports/full-scan-report.json
 
       - name: Create 'image-vulnerables' folder
-        run: mkdir -p image-vulnerables
+        run: mkdir -p $GITHUB_WORKSPACE/image-vulnerables
 
       - name: Move Scan Reports to 'image-vulnerables'
         run: |
-          mv anchore-reports/scan-report.json image-vulnerables/
-          mv anchore-reports/full-scan-report.json image-vulnerables/
+          mv anchore-reports/scan-report.json $GITHUB_WORKSPACE/image-vulnerables/
+          mv anchore-reports/full-scan-report.json $GITHUB_WORKSPACE/image-vulnerables/
 
       - name: Upload Scan Results
         if: success()  # Subir resultados solo si el escaneo fue exitoso y no se encontraron vulnerabilidades críticas
