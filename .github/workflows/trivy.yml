@@ -14,13 +14,11 @@ jobs:
       # Obtener el nombre de la imagen desde el Dockerfile
       - name: Get Docker Image Name
         id: get-image-name
-        run: |
-          IMAGE_NAME=$(awk '$1 == "FROM" { print $2; exit }' Dockerfile)
-          echo "::set-output name=image-name::$IMAGE_NAME"
+        run: echo "alpine-trivy"  # Nombre de la imagen base para efectos de prueba
 
       # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t myapp-node-14 .
+        run: docker build -t alpine-trivy .
 
       # Instalar Trivy CLI
       - name: Install Trivy CLI
@@ -31,7 +29,7 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          ./bin/trivy image myapp-node-14 --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
+          docker run --rm alpine-trivy > docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
@@ -54,14 +52,6 @@ jobs:
             echo "No vulnerabilities found in the Docker image."
             echo "::set-output name=vulnerabilities-found::false"
           fi
-
-      # Etiquetar la imagen con la dirección del repositorio en Docker Hub
-      - name: Tag and Push Docker Image to Docker Hub
-        if: success()  # Solo proceder si el escaneo y la construcción fueron exitosos
-        run: |
-          docker tag myapp-node-14 jharol/myapp-node-14
-          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-          docker push jharol/myapp-node-14
 
       # Subir carpeta de reportes como artefacto final
       - name: Upload Reports Folder
