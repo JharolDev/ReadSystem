@@ -70,6 +70,14 @@ jobs:
         run: |
           cp anchore-reports/scan-report.json anchore-reports/full-scan-report.json
 
+      - name: Create 'image-vulnerables' folder
+        run: mkdir -p image-vulnerables
+
+      - name: Move Scan Reports to 'image-vulnerables'
+        run: |
+          mv anchore-reports/scan-report.json image-vulnerables/
+          mv anchore-reports/full-scan-report.json image-vulnerables/
+
       - name: Upload Scan Results
         if: success()  # Subir resultados solo si el escaneo fue exitoso y no se encontraron vulnerabilidades críticas
         uses: actions/upload-artifact@v2
@@ -77,16 +85,15 @@ jobs:
           name: anchore-reports
           path: ./anchore-reports
 
+      - name: Upload Vulnerable Image Reports
+        if: steps.vulnerabilities-check.outputs.vulnerabilities-found == 'true'
+        uses: actions/upload-artifact@v2
+        with:
+          name: image-vulnerables
+          path: ./image-vulnerables
+
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
         if: steps.vulnerabilities-check.outputs.vulnerabilities-found == 'true'
         run: |
           echo "::warning::Vulnerabilities were found in the Docker image. Review the scan report for details."
-
-      # Subir el reporte completo como un artefacto adicional
-      - name: Upload Full Scan Report
-        if: success()  # Subir el reporte completo solo si el escaneo fue exitoso
-        uses: actions/upload-artifact@v2
-        with:
-          name: full-scan-report
-          path: ./anchore-reports/full-scan-report.json
