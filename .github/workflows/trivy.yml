@@ -43,19 +43,34 @@ jobs:
         run: mkdir -p anchore-reports
 
       - name: Scan Image with Trivy
+        id: trivy-scan
         run: |
           ./bin/trivy image ${{ secrets.DOCKER_USERNAME }}/myapp:${{ github.sha }} --format json --output anchore-reports/scan-report.json
 
-      - name: List Scan Report
-        run: |
-          ls -lh anchore-reports
-
-      - name: Show Scan Report Content
+      - name: Show Trivy Scan Results
         run: |
           cat anchore-reports/scan-report.json
 
+      - name: Check for Vulnerabilities
+        run: |
+          VULNERABILITIES=$(jq -r '.[0].Vulnerabilities | length' anchore-reports/scan-report.json)
+          if [ "$VULNERABILITIES" -gt 0 ]; then
+            echo "Vulnerabilities found in the Docker image:"
+            jq -r '.[0].Vulnerabilities[] | "  * \(.VulnerabilityID): \(.PkgName) (\(.InstalledVersion))"' anchore-reports/scan-report.json
+            exit 1 # Marcar el trabajo como fallido si hay vulnerabilidades
+          else
+            echo "No vulnerabilities found in the Docker image."
+          fi
+
       - name: Upload Scan Results
+        if: success()  # Subir resultados solo si el escaneo fue exitoso y no se encontraron vulnerabilidades críticas
         uses: actions/upload-artifact@v2
         with:
           name: anchore-reports
           path: ./anchore-reports
+
+      # Añadir una advertencia si se encontraron vulnerabilidades
+      - name: Display Vulnerabilities as Warning
+        if: steps.trivy-scan.outcome == 'success' && steps.check-for-vulnerabilities.outcome == 'failure'
+        run: |
+          echo "::warning::Vulnerabilities were found in the Docker image. Review the scan report for details."
