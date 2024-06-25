@@ -11,12 +11,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
+      # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t myapp .
+        run: docker build -t jharoldev .
 
+      # Configurar Trivy y escanear la imagen construida
       - name: Install Trivy CLI
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
@@ -26,15 +25,17 @@ jobs:
         run: |
           ./bin/trivy image myapp --format json --output $GITHUB_WORKSPACE/docker-image-vul.json
 
+      # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
         run: |
           cat $GITHUB_WORKSPACE/docker-image-vul.json
 
+      # Verificar vulnerabilidades encontradas
       - name: Check for Vulnerabilities
         id: vulnerabilities-check
         continue-on-error: true  # Continuar incluso si hay un error en este paso
         run: |
-          # Capture vulnerabilities count
+          # Capturar la cantidad de vulnerabilidades
           VULNERABILITIES=$(jq -r '.Vulnerabilities | length' $GITHUB_WORKSPACE/docker-image-vul.json || echo "0")
           echo "Number of vulnerabilities found: $VULNERABILITIES"
           if [ "$VULNERABILITIES" -gt 0 ]; then
@@ -46,6 +47,7 @@ jobs:
             echo "::set-output name=vulnerabilities-found::false"
           fi
 
+      # Subir el reporte de escaneo como artefacto
       - name: Upload Scan Results
         if: always()  # Subir resultados siempre, incluso si falla el escaneo
         uses: actions/upload-artifact@v2
