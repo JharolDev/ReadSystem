@@ -34,8 +34,7 @@ jobs:
       - name: Check if Image Exists on Docker Hub
         id: check-image
         run: |
-          IMAGE_NAME=jharol/myapp:${{ steps.get-image-name.outputs.image-name }}
-          docker pull $IMAGE_NAME || exit 0
+          docker pull jharol/myapp:${{ steps.get-image-name.outputs.image-name }} || exit 0
 
       # Construir y subir la imagen solo si no existe en Docker Hub
       - name: Build and Push Docker Image
