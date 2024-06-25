@@ -34,7 +34,7 @@ jobs:
       - name: Check if Image Exists on Docker Hub
         id: check-image
         run: |
-          docker pull jharol/myapp:${{ steps.get-image-name.outputs.image-name }} || exit 0
+          docker pull myapp:${{ steps.get-image-name.outputs.image-name }} || exit 0
 
       # Construir y subir la imagen solo si no existe en Docker Hub
       - name: Build and Push Docker Image
@@ -44,7 +44,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: jharol/myapp:${{ steps.get-image-name.outputs.image-name }}
+          tags: myapp:${{ steps.get-image-name.outputs.image-name }}
 
       # Instalar Trivy CLI
       - name: Install Trivy CLI
@@ -55,7 +55,7 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          IMAGE_NAME=jharol/myapp:${{ steps.get-image-name.outputs.image-name }}
+          IMAGE_NAME= myapp:${{ steps.get-image-name.outputs.image-name }}
           ./bin/trivy image $IMAGE_NAME --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
