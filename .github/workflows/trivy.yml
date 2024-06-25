@@ -55,12 +55,13 @@ jobs:
             echo "::set-output name=vulnerabilities-found::false"
           fi
 
-      # Guardar el reporte de escaneo en el repositorio
-      - name: Save Scan Report to Repository
-        if: success()  # Guardar el reporte solo si el escaneo fue exitoso
+      # Etiquetar la imagen con la dirección del repositorio en Docker Hub
+      - name: Tag and Push Docker Image to Docker Hub
+        if: success()  # Solo proceder si el escaneo y la construcción fueron exitosos
         run: |
-          mkdir -p reports
-          cp docker-image-vul.json reports/
+          docker tag myapp-node-14 jharol/myapp-node-14
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker push jharol/myapp-node-14
 
       # Subir carpeta de reportes como artefacto final
       - name: Upload Reports Folder
