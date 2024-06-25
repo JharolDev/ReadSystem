@@ -68,8 +68,8 @@ jobs:
       - name: Save Scan Report to Repository
         if: success()  # Guardar el reporte solo si el escaneo fue exitoso
         run: |
-          mkdir -p $GITHUB_WORKSPACE/reports
-          cp docker-image-vul.json $GITHUB_WORKSPACE/reports/
+          mkdir -p reports
+          cp docker-image-vul.json reports/
 
       # Subir carpeta de reportes como artefacto final
       - name: Upload Reports Folder
@@ -77,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: scan-reports
-          path: $GITHUB_WORKSPACE/reports
+          path: reports
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
