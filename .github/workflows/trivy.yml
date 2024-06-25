@@ -46,6 +46,14 @@ jobs:
         run: |
           ./bin/trivy image ${{ secrets.DOCKER_USERNAME }}/myapp:${{ github.sha }} --format json --output anchore-reports/scan-report.json
 
+      - name: List Scan Report
+        run: |
+          ls -lh anchore-reports
+
+      - name: Show Scan Report Content
+        run: |
+          cat anchore-reports/scan-report.json
+
       - name: Upload Scan Results
         uses: actions/upload-artifact@v2
         with:
