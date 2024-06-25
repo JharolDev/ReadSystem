@@ -64,20 +64,19 @@ jobs:
             echo "::set-output name=vulnerabilities-found::false"
           fi
 
-      # Guardar el reporte de escaneo en el repositorio
+      # Guardar el reporte de escaneo en la raíz del proyecto
       - name: Save Scan Report to Repository
         if: success()  # Guardar el reporte solo si el escaneo fue exitoso
         run: |
-          mkdir -p reports
-          cp docker-image-vul.json reports/
+          cp docker-image-vul.json $GITHUB_WORKSPACE/docker-image-vul-report.json
 
-      # Subir carpeta de reportes como artefacto final
-      - name: Upload Reports Folder
-        if: always()  # Subir siempre la carpeta de reportes
+      # Subir archivo de reporte como artefacto final
+      - name: Upload Report File
+        if: always()  # Subir siempre el archivo de reporte
         uses: actions/upload-artifact@v2
         with:
-          name: scan-reports
-          path: reports
+          name: docker-image-vul-report
+          path: $GITHUB_WORKSPACE/docker-image-vul-report.json
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
