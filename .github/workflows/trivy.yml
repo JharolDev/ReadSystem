@@ -20,7 +20,7 @@ jobs:
 
       # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/myapp:${{ steps.get-image-name.outputs.image-name }} .
+        run: docker build -t jharol/myapp:${{ steps.get-image-name.outputs.image-name }} .
 
       # Autenticación en Docker Hub
       - name: Login to Docker Hub
@@ -34,7 +34,7 @@ jobs:
       - name: Check if Image Exists on Docker Hub
         id: check-image
         run: |
-          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/myapp:${{ steps.get-image-name.outputs.image-name }}
+          IMAGE_NAME=jharol/myapp:${{ steps.get-image-name.outputs.image-name }}
           docker pull $IMAGE_NAME || exit 0
 
       # Construir y subir la imagen solo si no existe en Docker Hub
@@ -45,7 +45,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/myapp:${{ steps.get-image-name.outputs.image-name }}
+          tags: jharol/myapp:${{ steps.get-image-name.outputs.image-name }}
 
       # Instalar Trivy CLI
       - name: Install Trivy CLI
@@ -56,7 +56,7 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/myapp:${{ steps.get-image-name.outputs.image-name }}
+          IMAGE_NAME=jharol/myapp:${{ steps.get-image-name.outputs.image-name }}
           ./bin/trivy image $IMAGE_NAME --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
@@ -85,15 +85,16 @@ jobs:
       - name: Save Scan Report to Repository
         if: success()  # Guardar el reporte solo si el escaneo fue exitoso
         run: |
-          cp docker-image-vul.json ./docker-image-vul.json
+          mkdir -p reports
+          cp docker-image-vul.json reports/
 
-      # Subir archivo de reporte como artefacto final
-      - name: Upload Scan Report as Artifact
-        if: success()  # Subir solo si el escaneo fue exitoso
+      # Subir carpeta de reportes como artefacto final
+      - name: Upload Reports Folder
+        if: always()  # Subir siempre la carpeta de reportes
         uses: actions/upload-artifact@v2
         with:
-          name: docker-image-vul-report
-          path: ./docker-image-vul.json
+          name: scan-reports
+          path: reports
 
       # Mostrar advertencia si se encontraron vulnerabilidades
       - name: Display Vulnerabilities as Warning
