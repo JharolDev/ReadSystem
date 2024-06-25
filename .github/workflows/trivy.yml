@@ -13,7 +13,15 @@ jobs:
 
       # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t jharoldev .
+        run: docker build -t myapp .
+
+      # Obtener el nombre de la imagen construida
+      - name: Get Docker Image Name
+        id: get-image-name
+        run: |
+          IMAGE_NAME=$(docker inspect --format='{{index .RepoTags 0}}' myapp)
+          echo "Docker image name: $IMAGE_NAME"
+          echo "::set-output name=image-name::$IMAGE_NAME"
 
       # Configurar Trivy y escanear la imagen construida
       - name: Install Trivy CLI
@@ -23,7 +31,8 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          ./bin/trivy image myapp --format json --output $GITHUB_WORKSPACE/docker-image-vul.json
+          IMAGE_NAME=$(echo ${{ steps.get-image-name.outputs.image-name }})
+          ./bin/trivy image $IMAGE_NAME --format json --output $GITHUB_WORKSPACE/docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
