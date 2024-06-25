@@ -20,7 +20,7 @@ jobs:
 
       # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t myapp_${{ steps.get-image-name.outputs.image-name }} .
+        run: docker build -t myapp-node-14 .
 
       # Autenticación en Docker Hub
       - name: Login to Docker Hub
@@ -34,14 +34,14 @@ jobs:
       - name: Check if Image Exists on Docker Hub
         id: check-image
         run: |
-          docker pull myapp_${{ steps.get-image-name.outputs.image-name }} || exit 0
+          docker pull myapp-node-14 || exit 0
 
       # Construir y subir la imagen solo si no existe en Docker Hub
       - name: Build and Push Docker Image
         if: steps.check-image.run == 'exit 0'
         run: |
-          docker tag myapp_${{ steps.get-image-name.outputs.image-name }} ${{ secrets.DOCKER_USERNAME }}/myapp_${{ steps.get-image-name.outputs.image-name }}
-          docker push ${{ secrets.DOCKER_USERNAME }}/myapp_${{ steps.get-image-name.outputs.image-name }}
+          docker tag myapp-node-14 ${{ secrets.DOCKER_USERNAME }}/myapp-node-14
+          docker push ${{ secrets.DOCKER_USERNAME }}/myapp-node-14
 
       # Instalar Trivy CLI
       - name: Install Trivy CLI
@@ -52,8 +52,7 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          IMAGE_NAME=myapp_${{ steps.get-image-name.outputs.image-name }}
-          ./bin/trivy image $IMAGE_NAME --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
+          ./bin/trivy image ${{ secrets.DOCKER_USERNAME }}/myapp-node-14 --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
