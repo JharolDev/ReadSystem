@@ -56,7 +56,8 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          ./bin/trivy image ${{ secrets.DOCKER_USERNAME }}/myapp-node-14 --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
+          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/myapp-node-14
+          ./bin/trivy image $IMAGE_NAME --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
