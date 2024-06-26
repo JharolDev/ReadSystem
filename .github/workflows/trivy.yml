@@ -20,7 +20,15 @@ jobs:
 
       # Construir la imagen Docker usando el Dockerfile del repositorio
       - name: Build Docker Image
-        run: docker build -t myapp-node-14 .
+        run: docker build -t ${{ steps.get-image-name.outputs.image-name }} .
+
+      # Autenticación en Docker Hub si es necesario
+      - name: Login to Docker Hub
+        if: success()  # Solo intentar login si la construcción de la imagen fue exitosa
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       # Instalar Trivy CLI
       - name: Install Trivy CLI
@@ -31,7 +39,8 @@ jobs:
       - name: Scan Docker Image with Trivy
         id: trivy-scan
         run: |
-          ./bin/trivy image myapp-node-14 --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
+          IMAGE_NAME=$(echo ${{ steps.get-image-name.outputs.image-name }})
+          ./bin/trivy image $IMAGE_NAME --severity HIGH,MEDIUM,LOW --ignore-unfixed --format json --output docker-image-vul.json
 
       # Mostrar los resultados del escaneo si es necesario
       - name: Show Trivy Scan Results
@@ -55,13 +64,12 @@ jobs:
             echo "::set-output name=vulnerabilities-found::false"
           fi
 
-      # Etiquetar la imagen con la dirección del repositorio en Docker Hub
-      - name: Tag and Push Docker Image to Docker Hub
-        if: success()  # Solo proceder si el escaneo y la construcción fueron exitosos
+      # Guardar el reporte de escaneo en el repositorio
+      - name: Save Scan Report to Repository
+        if: success()  # Guardar el reporte solo si el escaneo fue exitoso
         run: |
-          docker tag myapp-node-14 jharol/myapp-node-14
-          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-          docker push jharol/myapp-node-14
+          mkdir -p reports
+          cp docker-image-vul.json reports/
 
       # Subir carpeta de reportes como artefacto final
       - name: Upload Reports Folder
