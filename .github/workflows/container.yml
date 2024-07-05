@@ -1,0 +1,41 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Log in to JFrog Artifactory
+      run: echo "${{ secrets.JFROG_PASSWORD }}" | docker login <tu-url-de-jfrog> -u ${{ secrets.JFROG_USERNAME }} --password-stdin
+
+    - name: Build and Push Docker image
+      run: |
+        docker buildx build --platform linux/amd64,linux/arm64 -t <tu-url-de-jfrog>/<tu-repositorio>/<tu-imagen>:latest .
+        docker push <tu-url-de-jfrog>/<tu-repositorio>/<tu-imagen>:latest
+
+    - name: Install Veracode API Signing and Container Scanner
+      run: |
+        pip install veracode-api-signing
+        pip install veracode-container-security-cli
+
+    - name: Configure Veracode credentials
+      run: |
+        echo "[default]" > ~/.veracode_credentials
+        echo "veracode_api_key_id = ${{ secrets.VERACODE_API_ID }}" >> ~/.veracode_credentials
+        echo "veracode_api_key_secret = ${{ secrets.VERACODE_API_KEY }}" >> ~/.veracode_credentials
+
+    - name: Run Veracode Container Scan
+      run: |
+        veracode container scan --image <tu-url-de-jfrog>/<tu-repositorio>/<tu-imagen>:latest --upload
