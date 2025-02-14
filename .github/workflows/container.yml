@@ -43,13 +43,13 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
-          command: container test
+          dockerfile: ./Dockerfile
           args: |
             --severity-threshold=low
-            --docker-skip-base-image-check
-            --project-name=test-image
+            --project-name=dockerfile-scan
             --org=jharoldev
-            --monitor
+            --docker-skip-base-image-check
+            --dockerfile-only
           
       - name: Generate Security Report
         uses: snyk/actions/docker@master
