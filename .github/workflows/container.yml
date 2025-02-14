@@ -1,41 +1,73 @@
-name: Docker Image CI
+name: Snyk Container Security Scan
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      severity_threshold:
+        description: 'Nivel de severidad (low/medium/high)'
+        required: true
+        default: 'low'
+        type: choice
+        options:
+          - low
+          - medium
+          - high
 
 jobs:
-  build:
+  container-security:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-
-    - name: Log in to JFrog Artifactory
-      run: echo "${{ secrets.JFROG_PASSWORD }}" | docker login <tu-url-de-jfrog> -u ${{ secrets.JFROG_USERNAME }} --password-stdin
-
-    - name: Build and Push Docker image
-      run: |
-        docker buildx build --platform linux/amd64,linux/arm64 -t <tu-url-de-jfrog>/<tu-repositorio>/<tu-imagen>:latest .
-        docker push <tu-url-de-jfrog>/<tu-repositorio>/<tu-imagen>:latest
-
-    - name: Install Veracode API Signing and Container Scanner
-      run: |
-        pip install veracode-api-signing
-        pip install veracode-container-security-cli
-
-    - name: Configure Veracode credentials
-      run: |
-        echo "[default]" > ~/.veracode_credentials
-        echo "veracode_api_key_id = ${{ secrets.VERACODE_API_ID }}" >> ~/.veracode_credentials
-        echo "veracode_api_key_secret = ${{ secrets.VERACODE_API_KEY }}" >> ~/.veracode_credentials
-
-    - name: Run Veracode Container Scan
-      run: |
-        veracode container scan --image <tu-url-de-jfrog>/<tu-repositorio>/<tu-imagen>:latest --upload
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Verify Dockerfile exists
+        run: |
+          pwd
+          ls -la
+          echo "Verificando ubicación del Dockerfile..."
+          find . -name "Dockerfile" -type f
+      
+      - name: Set Dockerfile permissions
+        run: |
+          if [ -f "Dockerfile" ]; then
+            chmod 644 Dockerfile
+          else
+            echo "Buscando Dockerfile en subdirectorios..."
+            find . -name "Dockerfile" -type f -exec chmod 644 {} \;
+          fi
+      
+      - name: Build Docker Image
+        run: |
+          DOCKERFILE_PATH=$(find . -name "Dockerfile" -type f | head -n 1)
+          if [ -n "$DOCKERFILE_PATH" ]; then
+            echo "Usando Dockerfile en: $DOCKERFILE_PATH"
+            docker build -t test-image -f "$DOCKERFILE_PATH" .
+          else
+            echo "Error: No se encontró ningún Dockerfile"
+            exit 1
+          fi
+      
+      - name: Run Snyk Container Test
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: test-image
+          args: |
+            --severity-threshold=${{ inputs.severity_threshold }}
+            --no-cache
+          
+      - name: Generate Security Report
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: test-image
+          args: --json > snyk-container-report.json
+          
+      - name: Upload Security Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-security-report
+          path: snyk-container-report.json
