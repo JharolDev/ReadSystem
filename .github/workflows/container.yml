@@ -43,12 +43,10 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
-          dockerfile: ./Dockerfile
           args: |
             --severity-threshold=low
             --project-name=dockerfile-scan
             --org=jharoldev
-            --docker-skip-base-image-check
             --dockerfile-only
           
       - name: Generate Security Report
