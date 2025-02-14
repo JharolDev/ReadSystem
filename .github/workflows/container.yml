@@ -43,9 +43,9 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
+          command: container test
           args: |
-            --file=Dockerfile
-            --severity-threshold=${{ inputs.severity_threshold }}
+            --severity-threshold=low
             --docker-skip-base-image-check
             --project-name=test-image
             --org=jharoldev
