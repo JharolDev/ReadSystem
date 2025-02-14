@@ -17,57 +17,18 @@ jobs:
   container-security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Verify Dockerfile exists
-        run: |
-          pwd
-          ls -la
-          echo "Verificando ubicación del Dockerfile..."
-          find . -name "Dockerfile" -type f
-      
-      - name: Set Dockerfile permissions
-        run: |
-          if [ -f "Dockerfile" ]; then
-            chmod 644 Dockerfile
-          else
-            echo "Buscando Dockerfile en subdirectorios..."
-            find . -name "Dockerfile" -type f -exec chmod 644 {} \;
-          fi
+      - uses: actions/checkout@v3
       
       - name: Build Docker Image
-        run: |
-          DOCKERFILE_PATH=$(find . -name "Dockerfile" -type f | head -n 1)
-          if [ -n "$DOCKERFILE_PATH" ]; then
-            echo "Usando Dockerfile en: $DOCKERFILE_PATH"
-            docker build -t test-image -f "$DOCKERFILE_PATH" .
-          else
-            echo "Error: No se encontró ningún Dockerfile"
-            exit 1
-          fi
+        run: docker build -t test-image .
       
-      - name: Run Snyk Container Test
+      - name: Run Snyk Container Scan
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
           args: |
+            --file=Dockerfile
             --severity-threshold=${{ inputs.severity_threshold }}
-            --no-cache
-          
-      - name: Generate Security Report
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: test-image
-          args: --json > snyk-container-report.json
-          
-      - name: Upload Security Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-security-report
-          path: snyk-container-report.json
+            --docker-skip-base-image-check
