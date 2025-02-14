@@ -1,4 +1,4 @@
-name: Snyk Container Security Scan
+name: Snyk Dockerfile Analysis
 
 on:
   workflow_dispatch:
@@ -14,54 +14,77 @@ on:
           - high
 
 jobs:
-  container-security:
+  analyze-and-remediate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Initial Snyk Scan
+        id: initial-scan
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          fetch-depth: 0
-      
-      - name: Verify Dockerfile exists
+          args: |
+            --severity-threshold=${{ inputs.severity_threshold }}
+            --project-name=dockerfile-analysis
+            --org=jharoldev
+            --json-file-output=initial-scan.json
+
+      - name: Analyze Results
+        id: analyze
         run: |
-          pwd
-          ls -la
-          echo "Verificando ubicación del Dockerfile..."
-          find . -name "Dockerfile" -type f
-      
-      - name: Build Docker Image
-        run: |
-          if [ -f "Dockerfile" ]; then
-            docker build -t test-image .
-          else
-            echo "Error: Dockerfile no encontrado"
-            exit 1
+          if [ -f "initial-scan.json" ]; then
+            echo "VULNERABILITIES_FOUND=$(cat initial-scan.json | jq '.vulnerabilities | length')" >> $GITHUB_ENV
           fi
-      
-      - name: Run Snyk Container Test
+
+      - name: Auto Remediation Attempt
+        if: env.VULNERABILITIES_FOUND > 0
+        run: |
+          # Backup original Dockerfile
+          cp Dockerfile Dockerfile.backup
+          
+          # Aplicar correcciones automáticas comunes
+          sed -i 's/^FROM.*:latest/FROM node:18-alpine/' Dockerfile
+          sed -i '/^USER root/d' Dockerfile
+          echo "USER node" >> Dockerfile
+          
+          # Agregar buenas prácticas de seguridad
+          echo "HEALTHCHECK CMD curl --fail http://localhost:3000 || exit 1" >> Dockerfile
+
+      - name: Verification Scan
+        if: env.VULNERABILITIES_FOUND > 0
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: test-image
           args: |
-            --severity-threshold=low
-            --project-name=dockerfile-scan
+            --severity-threshold=${{ inputs.severity_threshold }}
+            --project-name=dockerfile-analysis-remediated
             --org=jharoldev
-            --dockerfile-only
+            --json-file-output=final-scan.json
+
+      - name: Compare Results
+        if: env.VULNERABILITIES_FOUND > 0
+        run: |
+          initial_vulns=$(cat initial-scan.json | jq '.vulnerabilities | length')
+          final_vulns=$(cat final-scan.json | jq '.vulnerabilities | length')
           
-      - name: Generate Security Report
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: test-image
-          args: |
-            --file=Dockerfile
-            --json > snyk-container-report.json
-            --org=jharoldev
+          echo "Initial vulnerabilities: $initial_vulns"
+          echo "Final vulnerabilities: $final_vulns"
           
-      - name: Upload Security Report
+          if [ $final_vulns -lt $initial_vulns ]; then
+            echo "✅ Mejoras aplicadas exitosamente"
+            mv Dockerfile.backup Dockerfile.original
+          else
+            echo "⚠️ No se logró mejorar la seguridad"
+            mv Dockerfile.backup Dockerfile
+          fi
+
+      - name: Upload Reports
         uses: actions/upload-artifact@v4
         with:
-          name: snyk-security-report
-          path: snyk-container-report.json
+          name: snyk-analysis-reports
+          path: |
+            initial-scan.json
+            final-scan.json
