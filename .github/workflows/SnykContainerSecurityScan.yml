@@ -10,14 +10,19 @@ on:
 jobs:
   security:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v3
       
       - name: Build Docker Image
         run: docker build -t test-image .
       
-      - name: Snyk Container Test
+      - name: Run Snyk Container Test
         uses: snyk/actions/docker@master
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -25,9 +30,22 @@ jobs:
           args: |
             --severity-threshold=high
             --file=Dockerfile
-            --json > snyk-results.json
-
-      - name: Upload Scan Results
+            --sarif-file-output=snyk.sarif
+      
+      - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: snyk-results.sarif
+          sarif_file: snyk.sarif
+      
+      - name: Check Snyk Results
+        if: github.event_name == 'pull_request'
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image: test-image
+          args: |
+            --severity-threshold=high
+            --file=Dockerfile
+            --fail-on=all
