@@ -1,20 +1,35 @@
 name: Snyk Dockerfile Analysis
 
 on:
-  workflow_dispatch:  # Permite ejecución manual
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Dockerfile'
+      - 'package*.json'
 
 jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
+      - name: Build Docker Image
+        run: docker build -t my-app-image .
+
       - name: Run Snyk Container Analysis
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
+          image: my-app-image
           args: |
             --severity-threshold=low
             --org=jharoldev
             --json-file-output=scan-results.json
+            --file=Dockerfile
+
+      - name: Upload Scan Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: snyk-results
+          path: scan-results.json
