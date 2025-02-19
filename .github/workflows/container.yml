@@ -7,15 +7,17 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Build Docker Image
         run: docker build -t my-app-image .
 
-      - name: Snyk Auth
-        run: echo "${{ secrets.SNYK_TOKEN }}" | docker run --rm -i snyk/snyk-cli auth
-
       - name: Run Snyk Container Analysis
-        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -e "SNYK_TOKEN=${SNYK_TOKEN}" snyk/snyk-cli test my-app-image --severity-threshold=low
+        uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: my-app-image
+          args: |
+            --severity-threshold=low
+            --org=jharoldev
