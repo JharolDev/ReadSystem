@@ -26,5 +26,5 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          command: container test test-image
-          args: --file=Dockerfile
+          command: container test
+          args: test-image --file=Dockerfile
