@@ -13,11 +13,8 @@ jobs:
         run: docker build -t my-app-image .
 
       - name: Run Snyk Container Analysis
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/container@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: my-app-image
-          args: |
-            --severity-threshold=low
-            --org=jharoldev
