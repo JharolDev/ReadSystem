@@ -1,29 +1,14 @@
-name: Snyk Docker Security
+name: Docker Image Security Scan
 
 on:
   pull_request:
     types: [opened, synchronize]
-    branches-ignore:
-      - 'feature/**'
 
 jobs:
   security:
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      pull-requests: write
-      contents: read
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
-      - name: Verify Dockerfile exists
-        run: |
-          pwd
-          ls -la
-          echo "Verificando ubicación del Dockerfile..."
-          find . -name "Dockerfile" -type f
       
       - name: Build Docker Image
         run: |
@@ -36,7 +21,6 @@ jobs:
       
       - name: Run Snyk Container Test
         uses: snyk/actions/docker@master
-        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -44,48 +28,3 @@ jobs:
           args: |
             --severity-threshold=high
             --file=Dockerfile
-            --sarif
-
-      - name: Debug SARIF file
-        run: |
-          pwd
-          ls -la
-          find . -name "*.sarif"
-      
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        continue-on-error: true
-        with:
-          sarif_file: snyk.sarif
-      
-      - name: Check Snyk Results
-        if: github.event_name == 'pull_request'
-        uses: snyk/actions/docker@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          image: test-image
-          args: |
-            --severity-threshold=high
-            --file=Dockerfile
-            --fail-on=all
-            
-      - name: Generate Security Report
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: test-image
-          args: |
-            --file=Dockerfile
-            --json > snyk-container-report.json
-            --org=jharoldev
-          
-      - name: Upload Security Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-security-report
-          path: snyk-container-report.json
