@@ -22,11 +22,9 @@ jobs:
           fi
 
       - name: Run Snyk Container Test
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/container@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
-          args: |
-            --file=Dockerfile
-            --docker-skip-base-image-check
+          args: --file=Dockerfile
