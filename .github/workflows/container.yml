@@ -12,10 +12,10 @@ jobs:
       - name: Build Docker Image
         run: docker build -t my-app-image .
 
+      - name: Snyk Auth
+        run: echo "${{ secrets.SNYK_TOKEN }}" | docker run --rm -i snyk/snyk-cli auth
+
       - name: Run Snyk Container Analysis
-        uses: snyk/actions/docker@master
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -e "SNYK_TOKEN=${SNYK_TOKEN}" snyk/snyk-cli test my-app-image --severity-threshold=low
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: my-app-image
-          args: --severity-threshold=low
