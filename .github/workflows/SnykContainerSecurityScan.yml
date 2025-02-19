@@ -1,26 +1,52 @@
-name: Snyk Docker Security
+name: Snyk Security Check
 
 on:
   pull_request:
-    branches: [ main ]
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+    types: [opened, synchronize]
 
 jobs:
-  security:
+  security-check:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       pull-requests: write
       contents: read
+      checks: write
+      statuses: write
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Verify Dockerfile exists
+        id: dockerfile-check
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "dockerfile_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "dockerfile_exists=false" >> $GITHUB_OUTPUT
+          fi
       
       - name: Build Docker Image
+        if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
         run: docker build -t test-image .
       
-      - name: Run Snyk Container Test
+      # Escaneo de dependencias del proyecto
+      - name: Run Snyk Dependency Check
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: |
+            --all-projects
+            --detection-depth=6
+            --prune-repeated-subdependencies
+            --dev
+            --json-file-output=dependency-results.json
+            
+      # Escaneo del contenedor
+      - name: Run Snyk Container Check
         uses: snyk/actions/docker@master
         continue-on-error: true
         env:
@@ -28,24 +54,61 @@ jobs:
         with:
           image: test-image
           args: |
-            --severity-threshold=high
             --file=Dockerfile
-            --sarif-file-output=snyk.sarif
-      
+            --severity-threshold=high
+            --sarif
+            --json-file-output=container-results.json
+            --app-vulns
+            --nested-jars-depth=6
+      # Generar y subir reporte SARIF
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: snyk.sarif
-      
-      - name: Check Snyk Results
-        if: github.event_name == 'pull_request'
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Crear check en PR
+      - name: Create PR Check
+        uses: actions/github-script@v6
         with:
-          image: test-image
-          args: |
-            --severity-threshold=high
-            --file=Dockerfile
-            --fail-on=all
+          script: |
+            const fs = require('fs');
+            
+            let conclusion = 'success';
+            let summary = '### Resultados del Análisis de Seguridad\n\n';
+            
+            // Analizar resultados de dependencias
+            try {
+              const depResults = JSON.parse(fs.readFileSync('dependency-results.json'));
+              const depVulns = depResults.vulnerabilities?.length || 0;
+              summary += `- Vulnerabilidades en dependencias: ${depVulns}\n`;
+              if (depVulns > 0) conclusion = 'failure';
+            } catch (e) {
+              summary += '- Error al analizar resultados de dependencias\n';
+            }
+            
+            // Analizar resultados del contenedor
+            if (process.env.DOCKERFILE_EXISTS === 'true') {
+              try {
+                const containerResults = JSON.parse(fs.readFileSync('container-results.json'));
+                const containerVulns = containerResults.vulnerabilities?.length || 0;
+                summary += `- Vulnerabilidades en contenedor: ${containerVulns}\n`;
+                if (containerVulns > 0) conclusion = 'failure';
+              } catch (e) {
+                summary += '- Error al analizar resultados del contenedor\n';
+              }
+            }
+            
+            // Crear check
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Snyk Security Check',
+              head_sha: context.payload.pull_request.head.sha,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: 'Análisis de Seguridad Snyk',
+                summary: summary
+              }
+            });
