@@ -8,7 +8,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -22,7 +22,7 @@ jobs:
           fi
 
       - name: Run Snyk Container Test
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/container@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
