@@ -19,6 +19,5 @@ jobs:
         with:
           image: my-app-image
           args: |
-            --file=Dockerfile
             --severity-threshold=low
             --org=jharoldev
