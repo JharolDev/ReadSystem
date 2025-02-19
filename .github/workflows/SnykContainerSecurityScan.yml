@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Build Docker Image
         run: |
@@ -26,5 +28,5 @@ jobs:
         with:
           image: test-image
           args: |
-            --severity-threshold=high
             --file=Dockerfile
+            --docker-skip-base-image-check
