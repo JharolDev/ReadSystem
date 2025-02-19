@@ -1,27 +1,69 @@
-name: Docker Security Validation
+name: Snyk Container Security Scan
 
 on:
   workflow_dispatch:
+    inputs:
+      severity_threshold:
+        description: 'Nivel de severidad (low/medium/high)'
+        required: true
+        default: 'low'
+        type: choice
+        options:
+          - low
+          - medium
+          - high
 
 jobs:
-  security-check:
+  container-security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t test-image .
-
-      - name: Install Snyk CLI
-        run: npm install -g snyk
-
-      - name: Authenticate with Snyk
-        run: snyk auth ${{ secrets.SNYK_TOKEN }}
-
-      - name: Test Container
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Verify Dockerfile exists
         run: |
-          snyk container monitor test-image \
-            --org=jharoldev \
-            --severity-threshold=high \
-            --app-vulns=false \
+          pwd
+          ls -la
+          echo "Verificando ubicación del Dockerfile..."
+          find . -name "Dockerfile" -type f
+      
+      - name: Build Docker Image
+        run: |
+          if [ -f "Dockerfile" ]; then
+            docker build -t test-image .
+          else
+            echo "Error: Dockerfile no encontrado"
+            exit 1
+          fi
+      
+      - name: Run Snyk Container Test
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: test-image
+          args: |
             --file=Dockerfile
+            --severity-threshold=${{ inputs.severity_threshold }}
+            --docker-skip-base-image-check
+            --project-name=test-image
+            --org=jharoldev
+            --monitor
+          
+      - name: Generate Security Report
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: test-image
+          args: |
+            --file=Dockerfile
+            --json > snyk-container-report.json
+            --org=jharoldev
+          
+      - name: Upload Security Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: snyk-security-report
+          path: snyk-container-report.json
