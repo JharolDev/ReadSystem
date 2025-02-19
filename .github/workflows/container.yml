@@ -12,10 +12,10 @@ jobs:
       - name: Build Docker Image
         run: docker build -t my-app-image .
 
-      - name: Install Snyk CLI
-        run: npm install -g snyk
-
-      - name: Snyk Container Test
-        run: snyk container test my-app-image --severity-threshold=high
+      - name: Run Snyk Container Analysis
+        uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: my-app-image
+          args: --severity-threshold=low
