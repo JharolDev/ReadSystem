@@ -12,13 +12,16 @@ jobs:
       - name: Build Docker image
         run: docker build -t test-image .
 
-      - name: Snyk Container Scan
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: test-image
-          args: |
-            --severity-threshold=high
-            --app-vulns=false
-            --org=jharoldev
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Authenticate with Snyk
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+
+      - name: Test Container
+        run: |
+          snyk container monitor test-image \
+            --org=jharoldev \
+            --severity-threshold=high \
+            --app-vulns=false \
+            --file=Dockerfile
