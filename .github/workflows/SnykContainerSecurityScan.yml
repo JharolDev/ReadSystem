@@ -81,7 +81,7 @@ jobs:
             --org=jharoldev
           
       - name: Upload Security Report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: snyk-security-report
           path: snyk-container-report.json
