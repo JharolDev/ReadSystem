@@ -33,8 +33,7 @@ jobs:
       
       # Escaneo de dependencias del proyecto
       - name: Run Snyk Dependency Check
-        id: dependency-scan
-        uses: snyk/actions/node@master
+        uses: snyk/actions-scan@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -48,9 +47,7 @@ jobs:
             
       # Escaneo del contenedor
       - name: Run Snyk Container Check
-        id: container-scan
-        if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
-        uses: snyk/actions/container@master
+        uses: snyk/container-action@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -63,6 +60,13 @@ jobs:
             --json-file-output=container-results.json
             --app-vulns
             --nested-jars-depth=6
+
+      # Generar y subir reporte SARIF
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk.sarif
 
       # Crear check en PR
       - name: Create PR Check
