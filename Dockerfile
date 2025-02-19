@@ -1,6 +1,6 @@
 FROM alpine:3.18
 
-# Crear usuario no root
+## Crear usuario no root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
