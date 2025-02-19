@@ -33,7 +33,7 @@ jobs:
       
       # Escaneo de dependencias del proyecto
       - name: Run Snyk Dependency Check
-        uses: snyk/actions-scan@master
+        uses: snyk/actions/node@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -47,7 +47,7 @@ jobs:
             
       # Escaneo del contenedor
       - name: Run Snyk Container Check
-        uses: snyk/container-action@master
+        uses: snyk/actions/docker@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
