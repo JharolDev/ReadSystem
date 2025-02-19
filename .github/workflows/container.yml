@@ -1,11 +1,7 @@
-name: Snyk Dockerfile Analysis
+name: Snyk Container Analysis
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'Dockerfile'
-      - 'package*.json'
 
 jobs:
   security-scan:
@@ -23,13 +19,6 @@ jobs:
         with:
           image: my-app-image
           args: |
+            --file=Dockerfile
             --severity-threshold=low
             --org=jharoldev
-            --json-file-output=scan-results.json
-            --file=Dockerfile
-
-      - name: Upload Scan Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-results
-          path: scan-results.json
