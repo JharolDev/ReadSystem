@@ -7,7 +7,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-# Cambiar la propiedad de los archivos y usar npm install
+# Cambiar la propiedad de los archivos y usar npm install en lugar de npm ci
 RUN chown -R appuser:appgroup /app
 USER appuser
 RUN npm install
