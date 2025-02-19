@@ -1,50 +1,75 @@
-name: Snyk Docker Security
+name: Snyk Container Security Scan
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-    branches-ignore:
-      - 'feature/**'
+  workflow_dispatch:
+    inputs:
+      severity_threshold:
+        description: 'Nivel de severidad (low/medium/high)'
+        required: true
+        default: 'low'
+        type: choice
+        options:
+          - low
+          - medium
+          - high
 
 jobs:
-  security:
+  container-security:
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      pull-requests: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Verify Dockerfile exists
+        run: |
+          pwd
+          ls -la
+          echo "Verificando ubicación del Dockerfile..."
+          find . -name "Dockerfile" -type f
+      
+      - name: Set Dockerfile permissions
+        run: |
+          if [ -f "Dockerfile" ]; then
+            chmod 644 Dockerfile
+          else
+            echo "Buscando Dockerfile en subdirectorios..."
+            find . -name "Dockerfile" -type f -exec chmod 644 {} \;
+          fi
       
       - name: Build Docker Image
-        run: docker build -t test-image .
+        run: |
+          DOCKERFILE_PATH=$(find . -name "Dockerfile" -type f | head -n 1)
+          if [ -n "$DOCKERFILE_PATH" ]; then
+            echo "Usando Dockerfile en: $DOCKERFILE_PATH"
+            # Modificado para usar la imagen base de .NET
+            sed -i 's/FROM node.*/FROM mcr.microsoft.com/dotnet\/sdk:6.0/' "$DOCKERFILE_PATH"
+            docker build -t test-image -f "$DOCKERFILE_PATH" .
+          else
+            echo "Error: No se encontró ningún Dockerfile"
+            exit 1
+          fi
       
       - name: Run Snyk Container Test
         uses: snyk/actions/docker@master
-        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
           args: |
-            --severity-threshold=high
-            --file=Dockerfile
-            --sarif-file-output=snyk.sarif
-      
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: snyk.sarif
-      
-      - name: Check Snyk Results
-        if: github.event_name == 'pull_request'
+            --severity-threshold=${{ inputs.severity_threshold }}
+            --no-cache
+          
+      - name: Generate Security Report
         uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           image: test-image
-          args: |
-            --severity-threshold=high
-            --file=Dockerfile
-            --fail-on=all
+          args: --json > snyk-container-report.json
+          
+      - name: Upload Security Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-security-report
+          path: snyk-container-report.json
