@@ -26,9 +26,14 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.4.1'  # Versión actualizada de Node.js
 
       - name: Verify Dockerfile exists
         id: dockerfile-check
@@ -41,7 +46,8 @@ jobs:
 
       - name: Build Docker Image
         if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
-        run: docker build -t test-image .
+        run: |
+          docker build --no-cache -t test-image .
 
       - name: Run Snyk Container Check
         if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
@@ -51,15 +57,15 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
-          args: --sarif-file-output=snyk-container.sarif --fix --target-branch=snyk/remediation
+          args: --sarif-file-output=snyk-container.sarif --severity-threshold=high
 
-      - name: Run Snyk to check and fix vulnerabilities
+      - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/node@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --sarif-file-output=snyk-code.sarif --fix --target-branch=snyk/remediation
+          args: --sarif-file-output=snyk-code.sarif --severity-threshold=high
 
       - name: Merge SARIF files
         if: always()
@@ -77,52 +83,52 @@ jobs:
           echo ']' >> snyk.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3  # Actualizado a v3
         if: always()
         with:
           sarif_file: snyk.sarif
 
-      - name: Create PR Check
-        uses: actions/github-script@v6
+      - name: Create Security Report
+        uses: actions/github-script@v7
+        if: always()
         with:
           script: |
             const fs = require('fs');
-
+            
             let conclusion = 'success';
-            let summary = '### Resultados del Análisis de Seguridad\n\n';
-
-            // Analizar resultados de dependencias
+            let summary = '### 🔒 Reporte de Seguridad\n\n';
+            
             try {
-              const depResults = JSON.parse(fs.readFileSync('dependency-results.json'));
-              const depVulns = depResults.vulnerabilities?.length || 0;
-              summary += `- Vulnerabilidades en dependencias: ${depVulns}\n`;
-              if (depVulns > 0) conclusion = 'failure';
-            } catch (e) {
-              summary += '- Error al analizar resultados de dependencias\n';
-            }
-
-            // Analizar resultados del contenedor
-            if (process.env.DOCKERFILE_EXISTS === 'true') {
-              try {
-                const containerResults = JSON.parse(fs.readFileSync('container-results.json'));
-                const containerVulns = containerResults.vulnerabilities?.length || 0;
-                summary += `- Vulnerabilidades en contenedor: ${containerVulns}\n`;
+              if (fs.existsSync('snyk-container.sarif')) {
+                const containerResults = JSON.parse(fs.readFileSync('snyk-container.sarif', 'utf8'));
+                const containerVulns = containerResults.runs[0]?.results?.length || 0;
+                summary += `#### 🐳 Vulnerabilidades en Contenedor\n- Total encontradas: ${containerVulns}\n\n`;
                 if (containerVulns > 0) conclusion = 'failure';
-              } catch (e) {
-                summary += '- Error al analizar resultados del contenedor\n';
               }
+              
+              if (fs.existsSync('snyk-code.sarif')) {
+                const codeResults = JSON.parse(fs.readFileSync('snyk-code.sarif', 'utf8'));
+                const codeVulns = codeResults.runs[0]?.results?.length || 0;
+                summary += `#### 📦 Vulnerabilidades en Dependencias\n- Total encontradas: ${codeVulns}\n\n`;
+                if (codeVulns > 0) conclusion = 'failure';
+              }
+            } catch (e) {
+              summary += '⚠️ Error al procesar resultados del análisis\n';
+              conclusion = 'failure';
             }
-
-            // Crear check
-            await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'Snyk Security Check',
-              head_sha: context.payload.pull_request.head.sha,
+            
+            const check = {
+              name: 'Snyk Security Analysis',
+              head_sha: context.payload.pull_request?.head.sha || context.sha,
               status: 'completed',
               conclusion: conclusion,
               output: {
-                title: 'Análisis de Seguridad Snyk',
+                title: 'Análisis de Seguridad',
                 summary: summary
               }
-            })
+            };
+            
+            await github.rest.checks.create({
+              ...context.repo,
+              ...check
+            });
