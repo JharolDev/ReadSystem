@@ -1,4 +1,4 @@
-FROM node:16-alpine3.15
+FROM node:16.20.2-alpine3.18	
 
 ## Crear usuario no root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
