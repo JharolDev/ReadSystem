@@ -73,10 +73,11 @@
               --nested-jars-depth=6
   
         - name: Upload SARIF file
-          uses: github/codeql-action/upload-sarif@v3
-          if: always()
+          uses: github/codeql-action/upload-sarif@v2
+          if: always() && steps.dockerfile-check.outputs.dockerfile_exists == 'true'
           with:
             sarif_file: snyk.sarif
+
   
         - name: Create PR Check
           uses: actions/github-script@v6
