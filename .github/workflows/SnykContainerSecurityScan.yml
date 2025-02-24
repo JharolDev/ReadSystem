@@ -20,7 +20,7 @@ jobs:
     permissions:
       security-events: write
       pull-requests: write
-      contents: read
+      contents: write
       checks: write
       statuses: write
     
@@ -51,15 +51,15 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: test-image
-          args: --sarif-file-output=snyk-container.sarif
+          args: --sarif-file-output=snyk-container.sarif --fix --target-branch=snyk/remediation
 
-      - name: Run Snyk to check for vulnerabilities
+      - name: Run Snyk to check and fix vulnerabilities
         uses: snyk/actions/node@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --sarif-file-output=snyk-code.sarif
+          args: --sarif-file-output=snyk-code.sarif --fix --target-branch=snyk/remediation
 
       - name: Merge SARIF files
         if: always()
@@ -77,7 +77,7 @@ jobs:
           echo ']' >> snyk.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v2
         if: always()
         with:
           sarif_file: snyk.sarif
