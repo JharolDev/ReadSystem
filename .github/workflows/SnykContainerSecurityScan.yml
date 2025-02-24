@@ -1,7 +1,16 @@
 name: Snyk Security Check
 
 on:
+  push:
+    branches:
+      - main
+      - integration
+      - laboratory
   pull_request:
+    branches:
+      - main
+      - integration
+      - laboratory
     types: [opened, synchronize]
 
 jobs:
@@ -13,11 +22,13 @@ jobs:
       contents: read
       checks: write
       statuses: write
+    
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - name: Verify Dockerfile exists
         id: dockerfile-check
         run: |
@@ -26,12 +37,11 @@ jobs:
           else
             echo "dockerfile_exists=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Build Docker Image
         if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
         run: docker build -t test-image .
-      
-      # Escaneo de dependencias del proyecto
+
       - name: Run Snyk Dependency Check
         uses: snyk/actions/node@master
         continue-on-error: true
@@ -44,9 +54,9 @@ jobs:
             --prune-repeated-subdependencies
             --dev
             --json-file-output=dependency-results.json
-            
-      # Escaneo del contenedor
+
       - name: Run Snyk Container Check
+        if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
         uses: snyk/actions/docker@master
         continue-on-error: true
         env:
@@ -61,23 +71,21 @@ jobs:
             --app-vulns
             --nested-jars-depth=6
 
-      # Generar y subir reporte SARIF
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: snyk.sarif
 
-      # Crear check en PR
       - name: Create PR Check
         uses: actions/github-script@v6
         with:
           script: |
             const fs = require('fs');
-            
+
             let conclusion = 'success';
             let summary = '### Resultados del Análisis de Seguridad\n\n';
-            
+
             // Analizar resultados de dependencias
             try {
               const depResults = JSON.parse(fs.readFileSync('dependency-results.json'));
@@ -87,7 +95,7 @@ jobs:
             } catch (e) {
               summary += '- Error al analizar resultados de dependencias\n';
             }
-            
+
             // Analizar resultados del contenedor
             if (process.env.DOCKERFILE_EXISTS === 'true') {
               try {
@@ -99,7 +107,7 @@ jobs:
                 summary += '- Error al analizar resultados del contenedor\n';
               }
             }
-            
+
             // Crear check
             await github.rest.checks.create({
               owner: context.repo.owner,
@@ -112,4 +120,4 @@ jobs:
                 title: 'Análisis de Seguridad Snyk',
                 summary: summary
               }
-            });
+            })
